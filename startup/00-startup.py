@@ -17,6 +17,7 @@ import nslsii
 import ophyd.signal
 import redis
 from bluesky.callbacks.broker import post_run, verify_files_saved
+from bluesky.callbacks.buffer import BufferingWrapper
 from bluesky.callbacks.tiled_writer import TiledWriter
 from bluesky.run_engine import RunEngine, call_in_bluesky_event_loop
 from databroker.v0 import Broker
@@ -32,6 +33,8 @@ import bluesky.plan_stubs as bps
 
 from nslsii.re_subs import BlueskyDocJSONWriter, BlueskyDocStreamPrinter
 from nslsii.utils import open_redis_client
+
+TILED_BACKUP_ROOT = "/nsls2/data/hex/shared/config/bluesky/tiled_backup"
 
 try:
     from bluesky_queueserver import is_re_worker_active
@@ -117,8 +120,11 @@ tiled_writing_client = from_uri(
     api_key=os.environ["TILED_BLUESKY_WRITING_API_KEY_HEX"],
 )
 
+tw = TiledWriter(
+    tiled_writing_client,
+    backup_directory=f"{TILED_BACKUP_ROOT}/sql")
 
-tw = TiledWriter(tiled_writing_client)
+tw = BufferingWrapper(tw)  # in-process queue: RE never blocks
 RE.subscribe(tw)
 
 c = None
